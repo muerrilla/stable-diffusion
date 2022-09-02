@@ -142,7 +142,8 @@ class DDIMSampler(object):
         print(f"Running DDIM Sampling with {total_steps} timesteps")
 
         iterator = tqdm(time_range, desc='DDIM Sampler', total=total_steps)
-
+        clear_output(wait=False) # PREVIEW HACK
+        display(iterator.container) # PREVIEW HACK
         for i, step in enumerate(iterator):
             index = total_steps - i - 1
             ts = torch.full((b,), step, device=device, dtype=torch.long)
@@ -161,11 +162,22 @@ class DDIMSampler(object):
             img, pred_x0 = outs
             if callback: callback(i)
             if img_callback: img_callback(pred_x0, i)
+            
+            # PREVIEW HACK
+            if i % 5 == 0:
+                x_img = self.model.decode_first_stage(img)
+                x_img = x_img[0]
+                x_img = torch.clamp((x_img + 1.0) / 2.0, min=0.0, max=1.0)
+                x_img = 255. * rearrange(x_img.cpu().numpy(), 'c h w -> h w c')
+                Image.fromarray(x_img.astype(np.uint8)).save('preview.jpg') 
+                clear_output(wait=True)
+                display(iterator.container)
+                display(im('preview.jpg'))
 
             if index % log_every_t == 0 or index == total_steps - 1:
                 intermediates['x_inter'].append(img)
                 intermediates['pred_x0'].append(pred_x0)
-
+        clear_output(wait=True) # PREVIEW HACK
         return img, intermediates
 
     @torch.no_grad()
@@ -254,7 +266,7 @@ class DDIMSampler(object):
                                           unconditional_guidance_scale=unconditional_guidance_scale,
                                           unconditional_conditioning=unconditional_conditioning)
             # PREVIEW HACK
-            if i != 0 and i % 10 == 0: 
+            if i % 5 == 0: 
                 x_img = self.model.decode_first_stage(x_dec)
                 x_img = x_img[0]
                 x_img = torch.clamp((x_img + 1.0) / 2.0, min=0.0, max=1.0)
