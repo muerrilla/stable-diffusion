@@ -256,7 +256,7 @@ class DDIMSampler(object):
             index = total_steps - i - 1
             ts = torch.full((x_latent.shape[0],), step, device=x_latent.device, dtype=torch.long)
 
-            if z_mask is not None and i < total_steps - 2:
+            if z_mask is not None: # and i < total_steps - 2: # Maybe replace this with mask strength later
                 assert x0 is not None
                 img_orig = self.model.q_sample(x0, ts)  # TODO: deterministic forward pass?
                 mask_inv = 1. - z_mask
