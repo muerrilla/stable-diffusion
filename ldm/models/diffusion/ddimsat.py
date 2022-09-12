@@ -144,10 +144,14 @@ class DDIMSampler(object):
         iterator = tqdm(time_range, desc='DDIM Sampler', total=total_steps)
         #clear_output(wait=False) # PREVIEW HACK
         #display(iterator.container) # PREVIEW HACK
+        ucx = unconditional_guidance_scale
         for i, step in enumerate(iterator):
             index = total_steps - i - 1
             ts = torch.full((b,), step, device=device, dtype=torch.long)
 
+            # ucx = unconditional_guidance_scale * (1 - ((i / total_steps) ** .5))
+            # print(ucx)
+            
             if mask is not None:
                 assert x0 is not None
                 img_orig = self.model.q_sample(x0, ts)  # TODO: deterministic forward pass?
@@ -157,7 +161,7 @@ class DDIMSampler(object):
                                       quantize_denoised=quantize_denoised, temperature=temperature,
                                       noise_dropout=noise_dropout, score_corrector=score_corrector,
                                       corrector_kwargs=corrector_kwargs,
-                                      unconditional_guidance_scale=unconditional_guidance_scale,
+                                      unconditional_guidance_scale=ucx,
                                       unconditional_conditioning=unconditional_conditioning)
             img, pred_x0 = outs
             if callback: callback(i)
