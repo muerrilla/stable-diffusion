@@ -173,7 +173,7 @@ class DDIMSampler(object):
             if img_callback: img_callback(pred_x0, i)
             
             # PREVIEW HACK
-            if i > 5 and i % 5 == 0:
+            if i > 0 and i % 5 == 0:
                 x_img = self.model.decode_first_stage(pred_x0)
                 x_img = x_img[0]
                 x_img = torch.clamp((x_img + 1.0) / 2.0, min=0.0, max=1.0)
@@ -186,9 +186,6 @@ class DDIMSampler(object):
             if index % log_every_t == 0 or index == total_steps - 1:
                 intermediates['x_inter'].append(img)
                 intermediates['pred_x0'].append(pred_x0)
-        clear_output(wait=True) # PREVIEW HACK
-        ####################################################
-        ####################################################
         ####################################################
         ####################################################
         ####################################################
@@ -291,7 +288,7 @@ class DDIMSampler(object):
                                           unconditional_guidance_scale=ucx,
                                           unconditional_conditioning=unconditional_conditioning)
             # PREVIEW HACK
-            if i > 5 and i % 5 == 0: 
+            if i > 0 and i % 5 == 0: 
                 x_img = self.model.decode_first_stage(pred_x0)
                 x_img = x_img[0]
                 x_img = torch.clamp((x_img + 1.0) / 2.0, min=0.0, max=1.0)
@@ -301,9 +298,6 @@ class DDIMSampler(object):
                 clear_output(wait=True)
                 display(im('preview.jpg'))
                 display(iterator.container)
-        clear_output(wait=True) # PREVIEW HACK
-        ####################################################
-        ####################################################
         ####################################################
         ####################################################
         ####################################################
