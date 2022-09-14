@@ -101,7 +101,7 @@ class DDIMSampler(object):
         size = (batch_size, C, H, W)
         # print(f'Data shape for DDIM sampling is {size}, eta {eta}')
 
-        samples, intermediates = self.ddim_sampling(conditioning, size,
+        samples, intermediate = self.ddim_sampling(conditioning, size,
                                                     callback=callback,
                                                     img_callback=img_callback,
                                                     quantize_denoised=quantize_x0,
@@ -118,7 +118,7 @@ class DDIMSampler(object):
                                                     bias = bias,
                                                     quality = quality
                                                     )
-        return samples, intermediates
+        return samples, intermediate
 
     @torch.no_grad()
     def ddim_sampling(self, cond, shape,
@@ -140,14 +140,11 @@ class DDIMSampler(object):
             subset_end = int(min(timesteps / self.ddim_timesteps.shape[0], 1) * self.ddim_timesteps.shape[0]) - 1
             timesteps = self.ddim_timesteps[:subset_end]
 
-        intermediates = {'x_inter': [img], 'pred_x0': [img]}
         time_range = reversed(range(0,timesteps)) if ddim_use_original_steps else np.flip(timesteps)
         total_steps = timesteps if ddim_use_original_steps else timesteps.shape[0]
         # print(f"Running DDIM Sampling with {total_steps} timesteps")
 
         iterator = tqdm(time_range, desc='DDIM Sampler', total=total_steps)
-        #clear_output(wait=False) # PREVIEW HACK
-        #display(iterator.container) # PREVIEW HACK
         ucx = unconditional_guidance_scale
         for i, step in enumerate(iterator):
             if i > total_steps * quality: continue
@@ -170,31 +167,9 @@ class DDIMSampler(object):
                                       unconditional_conditioning=unconditional_conditioning)
             img, pred_x0 = outs
             if callback: callback(i)
-            if img_callback: img_callback(pred_x0, i)
-            
-            # PREVIEW HACK
-            if i > 0 and i % 5 == 0:
-                x_img = self.model.decode_first_stage(pred_x0)
-                x_img = x_img[0]
-                x_img = torch.clamp((x_img + 1.0) / 2.0, min=0.0, max=1.0)
-                x_img = 255. * rearrange(x_img.cpu().numpy(), 'c h w -> h w c')
-                Image.fromarray(x_img.astype(np.uint8)).save('preview.jpg') 
-                clear_output(wait=True)
-                display(im('preview.jpg'))
-                display(iterator.container)
+            if img_callback: img_callback(pred_x0, i, iterator)
 
-            if index % log_every_t == 0 or index == total_steps - 1:
-                intermediates['x_inter'].append(img)
-                intermediates['pred_x0'].append(pred_x0)
-        ####################################################
-        ####################################################
-        ####################################################
-        ############ VERY HACKY STUFF! #####################
-        ####################################################
-        ####################################################
-        ####################################################
-        # return img, intermediates
-        return pred_x0, intermediates
+        return img, pred_x0
 
 
     @torch.no_grad()
@@ -256,7 +231,7 @@ class DDIMSampler(object):
 
     @torch.no_grad()
     def decode(self, x_latent, cond, t_start, unconditional_guidance_scale=1.0, unconditional_conditioning=None,
-               use_original_steps=False, z_mask = None, x0=None, bias = 0, quality = 1):
+               use_original_steps=False, img_callback=None, z_mask = None, x0=None, bias = 0, quality = 1):
 
         timesteps = np.arange(self.ddpm_num_timesteps) if use_original_steps else self.ddim_timesteps
         timesteps = timesteps[:t_start]
@@ -267,8 +242,6 @@ class DDIMSampler(object):
 
         iterator = tqdm(time_range, desc='Decoding image', total=total_steps)
         x_dec = x_latent
-        #clear_output(wait=False) # PREVIEW HACK
-        #display(iterator.container) # PREVIEW HACK
         ucx = unconditional_guidance_scale
         for i, step in enumerate(iterator):
             if i > total_steps * quality: continue
@@ -287,23 +260,6 @@ class DDIMSampler(object):
             x_dec, pred_x0 = self.p_sample_ddim(x_dec, cond, ts, index=index, use_original_steps=use_original_steps,
                                           unconditional_guidance_scale=ucx,
                                           unconditional_conditioning=unconditional_conditioning)
-            # PREVIEW HACK
-            if i > 0 and i % 5 == 0: 
-                x_img = self.model.decode_first_stage(pred_x0)
-                x_img = x_img[0]
-                x_img = torch.clamp((x_img + 1.0) / 2.0, min=0.0, max=1.0)
-
-                x_img = 255. * rearrange(x_img.cpu().numpy(), 'c h w -> h w c')
-                Image.fromarray(x_img.astype(np.uint8)).save('preview.jpg') 
-                clear_output(wait=True)
-                display(im('preview.jpg'))
-                display(iterator.container)
-        ####################################################
-        ####################################################
-        ####################################################
-        ############ VERY HACKY STUFF! #####################
-        ####################################################
-        ####################################################
-        ####################################################
-        # return x_dec
-        return pred_x0
+            if img_callback: img_callback(pred_x0, i, iterator)
+            
+        return x_dec, pred_x0
