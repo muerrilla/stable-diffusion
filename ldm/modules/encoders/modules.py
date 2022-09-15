@@ -5,6 +5,7 @@ import clip
 from einops import rearrange, repeat
 from transformers import CLIPTokenizer, CLIPTextModel
 import kornia
+import kornia.augmentation as K
 
 from ldm.modules.x_transformer import Encoder, TransformerWrapper  # TODO: can we directly rely on lucidrains code and simply add this as a reuirement? --> test
 
@@ -182,10 +183,32 @@ class FrozenCLIPImageEmbedder(AbstractEncoder):
         # renormalize according to clip
         x = kornia.enhance.normalize(x, self.mean, self.std)
         return x
-
+    
+    def augment(self, x):
+        augment_list=[]
+        # augment_list.append(K.ColorJitter(brightness=0.1, contrast=0.1, saturation=0.1, hue=0.1, p=0.7))
+        # augment_list.append(K.RandomSharpness(sharpness=1.0, p=0.7))
+        # augment_list.append(K.RandomBoxBlur((6,6),p=0.5))
+        # augment_list.append(K.RandomPerspective(distortion_scale=0.7, p=0.7))
+        augment_list.append(K.RandomRotation(degrees=15, p=1.0))
+        # augment_list.append(K.RandomAffine(degrees=15, translate=0.1, shear=5, p=0.7, padding_mode='zeros', keepdim=True)) # border, reflection, zeros
+        # augment_list.append(K.RandomThinPlateSpline(scale=0.8, same_on_batch=True, p=0.7))
+        # augment_list.append(K.RandomCrop(size=(224,224), pad_if_needed=True, padding_mode='reflect', p=1.0))
+        # augment_list.append(K.RandomErasing(scale=(.1, .4), ratio=(.3, 1/.3), same_on_batch=False, p=0.7))
+        # augment_list.append(K.RandomResizedCrop(size=(224,224), scale=(0.1,1),  ratio=(0.75,1.333), cropping_mode='resample', p=0.5))
+        augs = nn.Sequential(*augment_list)
+        cutouts = [] 
+        for _ in range(32):
+            cutouts.append(self.preprocess(x))  
+        batch = augs(torch.cat(cutouts, dim=0))
+        return batch    
+    
     def forward(self, x):
         # x is assumed to be in range [-1,1]
-        return self.model.encode_image(self.preprocess(x)).float()
+        # encoded = self.model.encode_image(self.augment(x)).float()
+        # encoded = torch.mean(encoded,0,True)       
+        # return encoded
+        return self.model.encode_image(self.preprocess(x)).float() # ORIGINAL
 
     def encode(self, im):
         return self(im).unsqueeze(1)
