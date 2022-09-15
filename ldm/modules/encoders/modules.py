@@ -162,18 +162,10 @@ class FrozenCLIPEmbedder(AbstractEncoder):
         return self(text)
 
 class FrozenCLIPImageEmbedder(AbstractEncoder):
-    """
-        Uses the CLIP image encoder.
-        """
-    def __init__(
-            self,
-            model='ViT-L/14',
-            jit=False,
-            device='cuda', #'cuda' if torch.cuda.is_available() else 'cpu',
-            antialias=False,
-        ):
+    """Uses the CLIP image encoder."""
+    def __init__(self, model='ViT-L/14', jit=False, device='cuda', antialias=False):
         super().__init__()
-        self.model, _ = clip.load(name=model, device='cpu', jit=jit)
+        self.model, _ = clip.load(name=model, device='cuda', jit=jit)
         self.device = device
 
         self.antialias = antialias
