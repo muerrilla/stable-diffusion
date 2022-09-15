@@ -144,7 +144,7 @@ class DDIMSampler(object):
         total_steps = timesteps if ddim_use_original_steps else timesteps.shape[0]
         # print(f"Running DDIM Sampling with {total_steps} timesteps")
 
-        iterator = tqdm(time_range, desc='DDIM Sampler', total=total_steps)
+        iterator = tqdm(time_range, desc='DDIM Sampler', total=total_steps * quality)
         ucx = unconditional_guidance_scale
         for i, step in enumerate(iterator):
             if i > total_steps * quality: continue
@@ -240,7 +240,7 @@ class DDIMSampler(object):
         total_steps = timesteps.shape[0]
         # print(f"Running DDIM Sampling with {total_steps} timesteps")
 
-        iterator = tqdm(time_range, desc='Decoding image', total=total_steps)
+        iterator = tqdm(time_range, desc='Decoding image', total=total_steps * quality)
         x_dec = x_latent
         ucx = unconditional_guidance_scale
         for i, step in enumerate(iterator):
