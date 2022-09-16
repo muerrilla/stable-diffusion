@@ -251,7 +251,7 @@ class DDIMSampler(object):
                 assert x0 is not None
                 img_orig = self.model.q_sample(x0, ts)  # TODO: deterministic forward pass?
                 mask_inv = 1. - z_mask
-                x_dec = (img_orig * mask_inv) + (z_mask * x_dec)
+                x_dec = (x_dec * z_mask) + (img_orig * mask_inv)
             
             if bias > 0: ugs = max(0, unconditional_guidance_scale * (1 - ((i / total_steps) ** bias)))
 
