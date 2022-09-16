@@ -145,14 +145,13 @@ class DDIMSampler(object):
         # print(f"Running DDIM Sampling with {total_steps} timesteps")
 
         iterator = tqdm(time_range, desc='DDIM Sampler', total=total_steps * quality)
-        ucx = unconditional_guidance_scale
+        ugs = unconditional_guidance_scale
         for i, step in enumerate(iterator):
             if i > total_steps * quality: continue
             index = total_steps - i - 1
             ts = torch.full((b,), step, device=device, dtype=torch.long)
 
-            if bias > 0: ucx = max(5, unconditional_guidance_scale * (1 - ((i / total_steps) ** bias)))
-            # print(ucx)
+            if bias > 0: ugs = max(5, unconditional_guidance_scale * (1 - ((i / total_steps) ** bias)))
             
             if mask is not None:
                 assert x0 is not None
@@ -163,7 +162,7 @@ class DDIMSampler(object):
                                       quantize_denoised=quantize_denoised, temperature=temperature,
                                       noise_dropout=noise_dropout, score_corrector=score_corrector,
                                       corrector_kwargs=corrector_kwargs,
-                                      unconditional_guidance_scale=ucx,
+                                      unconditional_guidance_scale=ugs,
                                       unconditional_conditioning=unconditional_conditioning)
             img, pred_x0 = outs
             if callback: callback(i)
@@ -242,7 +241,7 @@ class DDIMSampler(object):
 
         iterator = tqdm(time_range, desc='Decoding image', total=total_steps * quality)
         x_dec = x_latent
-        ucx = unconditional_guidance_scale
+        ugs = unconditional_guidance_scale
         for i, step in enumerate(iterator):
             if i > total_steps * quality: continue
             index = total_steps - i - 1
@@ -254,11 +253,10 @@ class DDIMSampler(object):
                 mask_inv = 1. - z_mask
                 x_dec = (img_orig * mask_inv) + (z_mask * x_dec)
             
-            if bias > 0: ucx = max(0, unconditional_guidance_scale * (1 - ((i / total_steps) ** bias)))
-            # print(ucx)     
+            if bias > 0: ugs = max(0, unconditional_guidance_scale * (1 - ((i / total_steps) ** bias)))
 
             x_dec, pred_x0 = self.p_sample_ddim(x_dec, cond, ts, index=index, use_original_steps=use_original_steps,
-                                          unconditional_guidance_scale=ucx,
+                                          unconditional_guidance_scale=ugs,
                                           unconditional_conditioning=unconditional_conditioning)
             if img_callback: img_callback(pred_x0, i, iterator)
             
