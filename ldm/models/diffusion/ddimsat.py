@@ -165,8 +165,9 @@ class DDIMSampler(object):
                                       unconditional_guidance_scale=ugs,
                                       unconditional_conditioning=unconditional_conditioning)
             img, pred_x0 = outs
+
             if callback: callback(i)
-            if img_callback: img_callback(pred_x0, i, iterator)
+            if img_callback: img_callback(pred_x0, img, i, iterator)
 
         return img, pred_x0
 
@@ -258,6 +259,9 @@ class DDIMSampler(object):
             x_dec, pred_x0 = self.p_sample_ddim(x_dec, cond, ts, index=index, use_original_steps=use_original_steps,
                                           unconditional_guidance_scale=ugs,
                                           unconditional_conditioning=unconditional_conditioning)
-            if img_callback: img_callback(pred_x0, i, iterator)
+
+            # if i > total_steps * quality * .5: x_dec[:,1,:,:] *= .9                                       
+            if i > total_steps * quality * .5: x_dec *= .975                                       
+            if img_callback: img_callback(pred_x0, img, i, iterator)
             
         return x_dec, pred_x0
