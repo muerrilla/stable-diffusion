@@ -261,7 +261,7 @@ class DDIMSampler(object):
                                           unconditional_conditioning=unconditional_conditioning)
 
             # if i > total_steps * quality * .5: x_dec[:,1,:,:] *= .9                                       
-            if i > total_steps * quality * .5: x_dec *= .975                                       
+            # if i > total_steps * quality * .5: x_dec *= .975                                       
             if img_callback: img_callback(pred_x0, x_dec, i, iterator)
             
         return x_dec, pred_x0
