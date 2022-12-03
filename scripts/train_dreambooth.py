@@ -715,6 +715,7 @@ def main(args):
                             negative_prompt=args.save_sample_negative_prompt,
                             guidance_scale=args.save_guidance_scale,
                             num_inference_steps=args.save_infer_steps,
+                            seed=args.seed + i,
                             generator=g_cuda
                         ).images
                         images[0].save(os.path.join(sample_dir, f"{i}.png"))
@@ -726,6 +727,7 @@ def main(args):
                             negative_prompt=args.save_sample_negative_prompt,
                             guidance_scale=args.save_guidance_scale,
                             num_inference_steps=args.save_infer_steps,
+                            seed=args.seed + i,
                             generator=g_cuda
                         ).images
                         images[0].save(os.path.join(sample_dir, f"{i}x.png"))
