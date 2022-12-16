@@ -723,7 +723,8 @@ def main(args):
                         ppp = args.save_sample_prompt + " in the style of " + args.concepts_list[0]["instance_prompt"]
                         print(ppp)
                         images = pipeline(
-                            ppp,
+                            # ppp,
+                            class_prompt,
                             negative_prompt=args.save_sample_negative_prompt,
                             guidance_scale=args.save_guidance_scale,
                             num_inference_steps=args.save_infer_steps,
