@@ -93,9 +93,9 @@ def parse_args(input_args=None):
     parser.add_argument(
         "--save_sample_prompts",
         type=str,
-        nargs='+',
+        action=append,
         default=None,
-        help="The prompt used to generate sample outputs to save.",
+        help="The prompts used to generate sample outputs to save.",
     )    
     parser.add_argument(
         "--save_sample_negative_prompt",
@@ -709,7 +709,7 @@ def main(args):
             with open(os.path.join(save_dir, "args.json"), "w") as f:
                 json.dump(args.__dict__, f, indent=2)
 
-            if args.save_sample_prompt is not None:
+            if args.save_sample_prompts is not None:
                 pipeline = pipeline.to(accelerator.device)
                 g_cuda = torch.Generator(device=accelerator.device).manual_seed(args.seed)
                 pipeline.set_progress_bar_config(disable=True)
