@@ -3,7 +3,6 @@ import hashlib
 import itertools
 import random
 import json
-import logging
 import math
 import os
 from contextlib import nullcontext
@@ -20,7 +19,6 @@ from accelerate.logging import get_logger
 from accelerate.utils import set_seed
 from diffusers import AutoencoderKL, DDIMScheduler, DDPMScheduler, StableDiffusionPipeline, UNet2DConditionModel
 from diffusers.optimization import get_scheduler
-from diffusers.utils.import_utils import is_xformers_available
 from huggingface_hub import HfFolder, Repository, whoami
 from PIL import Image
 from torchvision import transforms
@@ -93,13 +91,13 @@ def parse_args(input_args=None):
         help="The prompt used to generate sample outputs to save.",
     )
     parser.add_argument(
-        "--save_sample_prompts",    
-        type=str,   
-        action='append',    
-        default=None,   
-        help="The prompts used to generate sample outputs to save.",    
-    )       
-    parser.add_argument(        
+        "--save_sample_prompts",
+        type=str,
+        action='append',
+        default=None,
+        help="The prompts used to generate sample outputs to save.",
+    )    
+    parser.add_argument(
         "--save_sample_negative_prompt",
         type=str,
         default=None,
@@ -120,7 +118,7 @@ def parse_args(input_args=None):
     parser.add_argument(
         "--save_infer_steps",
         type=int,
-        default=20,
+        default=50,
         help="The number of inference steps for save sample.",
     )
     parser.add_argument(
@@ -261,11 +259,6 @@ def parse_args(input_args=None):
         default=None,
         help="Path to json containing multiple concepts, will overwrite parameters like instance_prompt, class_prompt, etc.",
     )
-    parser.add_argument(
-        "--read_prompts_from_txts",
-        action="store_true",
-        help="Use prompt per image. Put prompts in the same directory as images, e.g. for image.png create image.png.txt.",
-    )
 
     if input_args is not None:
         args = parser.parse_args(input_args)
@@ -294,25 +287,19 @@ class DreamBoothDataset(Dataset):
         center_crop=False,
         num_class_images=None,
         pad_tokens=False,
-        hflip=False,
-        read_prompts_from_txts=False,
+        hflip=False
     ):
         self.size = size
         self.center_crop = center_crop
         self.tokenizer = tokenizer
         self.with_prior_preservation = with_prior_preservation
         self.pad_tokens = pad_tokens
-        self.read_prompts_from_txts = read_prompts_from_txts
 
         self.instance_images_path = []
         self.class_images_path = []
 
         for concept in concepts_list:
-            inst_img_path = [
-                (x, concept["instance_prompt"])
-                for x in Path(concept["instance_data_dir"]).iterdir()
-                if x.is_file() and not str(x).endswith(".txt")
-            ]
+            inst_img_path = [(x, concept["instance_prompt"]) for x in Path(concept["instance_data_dir"]).iterdir() if x.is_file()]
             self.instance_images_path.extend(inst_img_path)
 
             if with_prior_preservation:
@@ -340,15 +327,9 @@ class DreamBoothDataset(Dataset):
     def __getitem__(self, index):
         example = {}
         instance_path, instance_prompt = self.instance_images_path[index % self.num_instance_images]
-
-        if self.read_prompts_from_txts:
-            with open(str(instance_path) + ".txt") as f:
-                instance_prompt = f.read().strip()
-
         instance_image = Image.open(instance_path)
         if not instance_image.mode == "RGB":
             instance_image = instance_image.convert("RGB")
-
         example["instance_images"] = self.image_transforms(instance_image)
         example["instance_prompt_ids"] = self.tokenizer(
             instance_prompt,
@@ -436,12 +417,6 @@ def main(args):
         logging_dir=logging_dir,
     )
 
-    logging.basicConfig(
-        format="%(asctime)s - %(levelname)s - %(name)s - %(message)s",
-        datefmt="%m/%d/%Y %H:%M:%S",
-        level=logging.INFO,
-    )
-
     # Currently, it's not possible to do gradient accumulation when training two models with accelerate.accumulate
     # This will be enabled soon in accelerate. For now, we don't allow gradient accumulation when training two models.
     # TODO (patil-suraj): Remove this check when gradient accumulation with two models is enabled in accelerate.
@@ -489,9 +464,6 @@ def main(args):
                         safety_checker=None,
                         revision=args.revision
                     )
-                    pipeline.scheduler = DDIMScheduler.from_config(pipeline.scheduler.config)
-                    if is_xformers_available():
-                        pipeline.enable_xformers_memory_efficient_attention()
                     pipeline.set_progress_bar_config(disable=True)
                     pipeline.to(accelerator.device)
 
@@ -507,10 +479,7 @@ def main(args):
                     for example in tqdm(
                         sample_dataloader, desc="Generating class images", disable=not accelerator.is_local_main_process
                     ):
-                        images = pipeline(
-                            example["prompt"],
-                            num_inference_steps=args.save_infer_steps
-                            ).images
+                        images = pipeline(example["prompt"]).images
 
                         for i, image in enumerate(images):
                             hash_image = hashlib.sha1(image.tobytes()).hexdigest()
@@ -556,12 +525,6 @@ def main(args):
     if not args.train_text_encoder:
         text_encoder.requires_grad_(False)
 
-    if is_xformers_available():
-        vae.enable_xformers_memory_efficient_attention()
-        unet.enable_xformers_memory_efficient_attention()
-    else:
-        logger.warning("xformers is not available. Make sure it is installed correctly")
-
     if args.gradient_checkpointing:
         unet.enable_gradient_checkpointing()
         if args.train_text_encoder:
@@ -606,8 +569,7 @@ def main(args):
         center_crop=args.center_crop,
         num_class_images=args.num_class_images,
         pad_tokens=args.pad_tokens,
-        hflip=args.hflip,
-        read_prompts_from_txts=args.read_prompts_from_txts,
+        hflip=args.hflip
     )
 
     def collate_fn(examples):
@@ -724,12 +686,13 @@ def main(args):
         # Create the pipeline using using the trained modules and save it.
         if accelerator.is_main_process:
             if args.train_text_encoder:
-                text_enc_model = accelerator.unwrap_model(text_encoder, keep_fp32_wrapper=True)
+                text_enc_model = accelerator.unwrap_model(text_encoder)
             else:
                 text_enc_model = CLIPTextModel.from_pretrained(args.pretrained_model_name_or_path, subfolder="text_encoder", revision=args.revision)
+            scheduler = DDIMScheduler(beta_start=0.00085, beta_end=0.012, beta_schedule="scaled_linear", clip_sample=False, set_alpha_to_one=False)
             pipeline = StableDiffusionPipeline.from_pretrained(
                 args.pretrained_model_name_or_path,
-                unet=accelerator.unwrap_model(unet, keep_fp32_wrapper=True),
+                unet=accelerator.unwrap_model(unet),
                 text_encoder=text_enc_model,
                 vae=AutoencoderKL.from_pretrained(
                     args.pretrained_vae_name_or_path or args.pretrained_model_name_or_path,
@@ -737,12 +700,10 @@ def main(args):
                     revision=None if args.pretrained_vae_name_or_path else args.revision,
                 ),
                 safety_checker=None,
+                scheduler=scheduler,
                 torch_dtype=torch.float16,
                 revision=args.revision,
             )
-            pipeline.scheduler = DDIMScheduler.from_config(pipeline.scheduler.config)
-            if is_xformers_available():
-                pipeline.enable_xformers_memory_efficient_attention()
             save_dir = os.path.join(args.output_dir, f"{step}")
             pipeline.save_pretrained(save_dir)
             with open(os.path.join(save_dir, "args.json"), "w") as f:
@@ -756,25 +717,28 @@ def main(args):
                 os.makedirs(sample_dir, exist_ok=True)
                 with torch.autocast("cuda"), torch.inference_mode():
                     for ppp in args.save_sample_prompts:
-                        for i in tqdm(range(args.n_save_sample), desc="Generating samples"):    
-                            images = pipeline(  
-                                ppp,    
-                                negative_prompt=args.save_sample_negative_prompt,   
-                                guidance_scale=args.save_guidance_scale,    
-                                num_inference_steps=args.save_infer_steps,  
-                                seed=args.seed + i, 
-                                generator=g_cuda    
-                            ).images    
+                        for i in tqdm(range(args.n_save_sample), desc="Generating samples"):
+                            images = pipeline(
+                                ppp,
+                                negative_prompt=args.save_sample_negative_prompt,
+                                guidance_scale=args.save_guidance_scale,
+                                num_inference_steps=args.save_infer_steps,
+                                seed=args.seed + i,
+                                generator=g_cuda
+                            ).images
                             images[0].save(os.path.join(sample_dir, ppp + f"{i}.png"))
+
                     # for i in tqdm(range(args.n_save_sample), desc="Generating samples"):
                     #     images = pipeline(
                     #         args.save_sample_prompt,
                     #         negative_prompt=args.save_sample_negative_prompt,
                     #         guidance_scale=args.save_guidance_scale,
                     #         num_inference_steps=args.save_infer_steps,
+                    #         seed=args.seed + i,
                     #         generator=g_cuda
                     #     ).images
                     #     images[0].save(os.path.join(sample_dir, f"{i}.png"))
+
                 del pipeline
                 if torch.cuda.is_available():
                     torch.cuda.empty_cache()
@@ -822,31 +786,23 @@ def main(args):
                         encoder_hidden_states = text_encoder(batch["input_ids"])[0]
 
                 # Predict the noise residual
-                model_pred = unet(noisy_latents, timesteps, encoder_hidden_states).sample
-
-                # Get the target for loss depending on the prediction type
-                if noise_scheduler.config.prediction_type == "epsilon":
-                    target = noise
-                elif noise_scheduler.config.prediction_type == "v_prediction":
-                    target = noise_scheduler.get_velocity(latents, noise, timesteps)
-                else:
-                    raise ValueError(f"Unknown prediction type {noise_scheduler.config.prediction_type}")
+                noise_pred = unet(noisy_latents, timesteps, encoder_hidden_states).sample
 
                 if args.with_prior_preservation:
-                    # Chunk the noise and model_pred into two parts and compute the loss on each part separately.
-                    model_pred, model_pred_prior = torch.chunk(model_pred, 2, dim=0)
-                    target, target_prior = torch.chunk(target, 2, dim=0)
+                    # Chunk the noise and noise_pred into two parts and compute the loss on each part separately.
+                    noise_pred, noise_pred_prior = torch.chunk(noise_pred, 2, dim=0)
+                    noise, noise_prior = torch.chunk(noise, 2, dim=0)
 
                     # Compute instance loss
-                    loss = F.mse_loss(model_pred.float(), target.float(), reduction="mean")
+                    loss = F.mse_loss(noise_pred.float(), noise.float(), reduction="none").mean([1, 2, 3]).mean()
 
                     # Compute prior loss
-                    prior_loss = F.mse_loss(model_pred_prior.float(), target_prior.float(), reduction="mean")
+                    prior_loss = F.mse_loss(noise_pred_prior.float(), noise_prior.float(), reduction="mean")
 
                     # Add the prior loss to the instance loss.
                     loss = loss + args.prior_loss_weight * prior_loss
                 else:
-                    loss = F.mse_loss(model_pred.float(), target.float(), reduction="mean")
+                    loss = F.mse_loss(noise_pred.float(), noise.float(), reduction="mean")
 
                 accelerator.backward(loss)
                 # if accelerator.sync_gradients:
