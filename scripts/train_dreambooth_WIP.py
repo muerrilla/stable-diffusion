@@ -92,6 +92,8 @@ def parse_args(input_args=None):
         default=None,
         help="The prompt used to generate sample outputs to save.",
     )
+###################### SAHAND HACK #######################################################################################
+####    
     parser.add_argument(
         "--save_sample_prompts",    
         type=str,   
@@ -99,6 +101,20 @@ def parse_args(input_args=None):
         default=None,   
         help="The prompts used to generate sample outputs to save.",    
     )       
+    parser.add_argument(
+        "--save_sample_width",
+        type=int,
+        default=512,
+        help="Sample Width",
+    )    
+    parser.add_argument(
+        "--save_ample_height",
+        type=int,
+        default=512,
+        help="Sample Height",
+    )      
+####
+###################### SAHAND HACK #######################################################################################    
     parser.add_argument(        
         "--save_sample_negative_prompt",
         type=str,
@@ -750,7 +766,8 @@ def main(args):
 
             if args.save_sample_prompts is not None:
                 pipeline = pipeline.to(accelerator.device)
-                g_cuda = torch.Generator(device=accelerator.device).manual_seed(args.seed)
+                # g_cuda = torch.Generator(device=accelerator.device).manual_seed(args.seed)
+                g_cuda = [torch.Generator(device=accelerator.device).manual_seed(args.seed) for p in args.save_sample_prompts]                
                 pipeline.set_progress_bar_config(disable=True)
                 sample_dir = os.path.join(save_dir, "samples")
                 os.makedirs(sample_dir, exist_ok=True)
@@ -758,19 +775,21 @@ def main(args):
 
 ###################### SAHAND HACK #######################################################################################
 ####
-                    for ppp in args.save_sample_prompts:
-                        for i in tqdm(range(args.n_save_sample), desc="Generating samples"):    
-                            images = pipeline(  
-                                ppp,    
-                                negative_prompt=args.save_sample_negative_prompt,   
-                                guidance_scale=args.save_guidance_scale,    
-                                num_inference_steps=args.save_infer_steps,  
-                                generator=g_cuda    
-                            ).images    
-                            images[0].save(os.path.join(sample_dir, ppp + f"{i}.png"))
+                    for i in tqdm(range(args.n_save_sample), desc="Generating samples"):   
+                        images = pipeline(  
+                            args.save_sample_prompts,    
+                            height=args.save_sample_height,
+                            width=args.save_sample_width,
+                            negative_prompt=args.save_sample_negative_prompt,   
+                            guidance_scale=args.save_guidance_scale,    
+                            num_inference_steps=args.save_infer_steps,  
+                            generator=g_cuda    
+                        ).images 
+                        for j, img in enumerate(images):   
+                            img.save(os.path.join(sample_dir, args.save_sample_prompts[j] + ".png"))
 ####
 ###################### SAHAND HACK #######################################################################################
-                            
+
                     # for i in tqdm(range(args.n_save_sample), desc="Generating samples"):
                     #     images = pipeline(
                     #         args.save_sample_prompt,
