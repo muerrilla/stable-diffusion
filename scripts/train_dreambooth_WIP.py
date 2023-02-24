@@ -108,7 +108,7 @@ def parse_args(input_args=None):
         help="Sample Width",
     )    
     parser.add_argument(
-        "--save_ample_height",
+        "--save_sample_height",
         type=int,
         default=512,
         help="Sample Height",
