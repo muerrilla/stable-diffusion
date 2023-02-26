@@ -113,6 +113,12 @@ def parse_args(input_args=None):
         default=512,
         help="Sample Height",
     )      
+    parser.add_argument(
+        "--noshuffle",
+        default=False,
+        action="store_true",
+        help="Don't shuffle dataset",
+    )    
 ####
 ###################### SAHAND HACK #######################################################################################    
     parser.add_argument(        
@@ -312,6 +318,8 @@ class DreamBoothDataset(Dataset):
         pad_tokens=False,
         hflip=False,
         read_prompts_from_txts=False,
+        seed=None,
+        noshuffle=False,
     ):
         self.size = size
         self.center_crop = center_crop
@@ -319,6 +327,8 @@ class DreamBoothDataset(Dataset):
         self.with_prior_preservation = with_prior_preservation
         self.pad_tokens = pad_tokens
         self.read_prompts_from_txts = read_prompts_from_txts
+        self.seed = seed
+        self.noshuffle = noshuffle
 
         self.instance_images_path = []
         self.class_images_path = []
@@ -335,7 +345,16 @@ class DreamBoothDataset(Dataset):
                 class_img_path = [(x, concept["class_prompt"]) for x in Path(concept["class_data_dir"]).iterdir() if x.is_file()]
                 self.class_images_path.extend(class_img_path[:num_class_images])
 
-        random.shuffle(self.instance_images_path)
+###################### SAHAND HACK #######################################################################################
+####
+        if not self.noshuffle:
+            if self.seed is not None:
+                random.Random(self.seed).shuffle(self.instance_images_path)
+            else:
+                random.shuffle(self.instance_images_path)
+####
+###################### SAHAND HACK #######################################################################################
+
         self.num_instance_images = len(self.instance_images_path)
         self.num_class_images = len(self.class_images_path)
         self._length = max(self.num_class_images, self.num_instance_images)
@@ -624,6 +643,8 @@ def main(args):
         pad_tokens=args.pad_tokens,
         hflip=args.hflip,
         read_prompts_from_txts=args.read_prompts_from_txts,
+        seed=args.seed,
+        noshuffle=args.noshuffle,
     )
 
     def collate_fn(examples):
@@ -775,18 +796,18 @@ def main(args):
 
 ###################### SAHAND HACK #######################################################################################
 ####
-                    for i in tqdm(range(args.n_save_sample), desc="Generating samples"):   
-                        images = pipeline(  
-                            args.save_sample_prompts,    
-                            height=args.save_sample_height,
-                            width=args.save_sample_width,
-                            negative_prompt=args.save_sample_negative_prompt,   
-                            guidance_scale=args.save_guidance_scale,    
-                            num_inference_steps=args.save_infer_steps,  
-                            generator=g_cuda    
-                        ).images 
-                        for j, img in enumerate(images):   
-                            img.save(os.path.join(sample_dir, args.save_sample_prompts[j] + ".png"))
+                    for seed, ppp in enumerate(args.save_sample_prompts):
+                        for i in tqdm(range(args.n_save_sample), desc="Generating samples"):   
+                            images = pipeline(  
+                                ppp,    
+                                height=args.save_sample_height,
+                                width=args.save_sample_width,
+                                negative_prompt=args.save_sample_negative_prompt,   
+                                guidance_scale=args.save_guidance_scale,    
+                                num_inference_steps=args.save_infer_steps,  
+                                generator=g_cuda[seed]
+                            ).images 
+                            images[0].save(os.path.join(sample_dir, ppp + f"-{i}.png"))
 ####
 ###################### SAHAND HACK #######################################################################################
 
