@@ -119,6 +119,12 @@ def parse_args(input_args=None):
         action="store_true",
         help="Don't shuffle dataset",
     )    
+    parser.add_argument(
+        "--offset_noise",
+        default=False,
+        action="store_true",
+        help="Use Offset Noise",
+    )      
 ####
 ###################### SAHAND HACK #######################################################################################    
     parser.add_argument(        
@@ -846,7 +852,10 @@ def main(args):
                     latents = latent_dist.sample() * 0.18215
 
                 # Sample noise that we'll add to the latents
-                noise = torch.randn_like(latents)
+                if args.offset_noise: 
+                    noise = torch.randn_like(latents) + 0.1 * torch.randn(latents.shape[0], latents.shape[1], 1, 1)
+                else:
+                    noise = torch.randn_like(latents)
                 bsz = latents.shape[0]
                 # Sample a random timestep for each image
                 timesteps = torch.randint(0, noise_scheduler.config.num_train_timesteps, (bsz,), device=latents.device)
