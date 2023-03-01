@@ -27,6 +27,7 @@ from torchvision import transforms
 from tqdm.auto import tqdm
 from transformers import CLIPTextModel, CLIPTokenizer
 
+import noise as noiZe
 
 torch.backends.cudnn.benchmark = True
 
@@ -94,6 +95,7 @@ def parse_args(input_args=None):
     )
 ###################### SAHAND HACK #######################################################################################
 ####    
+
     parser.add_argument(
         "--save_sample_prompts",    
         type=str,   
@@ -121,10 +123,17 @@ def parse_args(input_args=None):
     )    
     parser.add_argument(
         "--offset_noise",
-        default=False,
-        action="store_true",
-        help="Use Offset Noise",
-    )      
+        type=float,
+        default=0.0,
+        help="Offset Noise (suggested: 0.1)",
+    )  
+    parser.add_argument(
+        "--perlin_noise",
+        type=float,
+        default=0.0,
+        help="Add Perlin Noise (suggested: 0.25)",
+    )     
+
 ####
 ###################### SAHAND HACK #######################################################################################    
     parser.add_argument(        
@@ -852,10 +861,23 @@ def main(args):
                     latents = latent_dist.sample() * 0.18215
 
                 # Sample noise that we'll add to the latents
-                if args.offset_noise: 
-                    noise = torch.randn_like(latents, device=latents.device) + 0.1 * torch.randn(latents.shape[0], latents.shape[1], 1, 1, device=latents.device)
-                else:
-                    noise = torch.randn_like(latents)
+                noise = torch.randn_like(latents, device=latents.device) + torch.randn(latents.shape[0], latents.shape[1], 1, 1, device=latents.device) * args.offset_noise
+
+                if args.perlin_noise > 0:
+                    octaves = 3
+                    scale = noise.shape[2] * 2
+                    channels = []
+                    for channel in range(4):
+                        seedr = random.randint(0, 65535)
+                        noise_array = torch.zeros((noise.shape[2], noise.shape[3]))
+                        for x in range(noise.shape[2]):
+                            for y in range(noise.shape[3]):
+                                noise_array[x][y] = noiZe.pnoise3(x/scale, y/scale, seedr, octaves=octaves)                  
+                        noise_tensor = noise_array.clone().detach().unsqueeze(0)
+                        channels.append(noise_tensor)
+                    perlin = torch.cat(channels, dim=0).unsqueeze(0).to(noise.device)
+                    noise = noise + perlin * args.perlin_noise
+
                 bsz = latents.shape[0]
                 # Sample a random timestep for each image
                 timesteps = torch.randint(0, noise_scheduler.config.num_train_timesteps, (bsz,), device=latents.device)
