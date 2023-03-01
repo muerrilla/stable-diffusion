@@ -133,7 +133,18 @@ def parse_args(input_args=None):
         default=0.0,
         help="Add Perlin Noise (suggested: 0.25)",
     )     
-
+    parser.add_argument(
+        "--perlin_noise_scale",
+        type=float,
+        default=1.0,
+        help="Perlin Noise Scale (default: 1.0)",
+    )    
+    parser.add_argument(
+        "--perlin_noise_octaves",
+        type=int,
+        default=3,
+        help="Perlin Noise Octaves (default: 3)",
+    )        
 ####
 ###################### SAHAND HACK #######################################################################################    
     parser.add_argument(        
@@ -864,8 +875,8 @@ def main(args):
                 noise = torch.randn_like(latents, device=latents.device) + torch.randn(latents.shape[0], latents.shape[1], 1, 1, device=latents.device) * args.offset_noise
 
                 if args.perlin_noise > 0:
-                    octaves = 3
-                    scale = noise.shape[2] * 2
+                    octaves = args.perlin_noise_octaves
+                    scale = noise.shape[2] * args.perlin_noise_scale
                     channels = []
                     for channel in range(4):
                         seedr = random.randint(0, 65535)
