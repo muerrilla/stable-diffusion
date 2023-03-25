@@ -375,7 +375,7 @@ class DreamBoothDataset(Dataset):
 ####
         if not self.noshuffle:
             if self.seed is not None:
-                random.Random(self.seed).shuffle(self.instance_images_path)
+                random.Random(self.seed + 1).shuffle(self.instance_images_path)
             else:
                 random.shuffle(self.instance_images_path)
 ####
