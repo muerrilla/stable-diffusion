@@ -134,6 +134,12 @@ def parse_args(input_args=None):
         help="Add Perlin Noise (suggested: 0.25)",
     )     
     parser.add_argument(
+        "--perlin_noise_per_channel",
+        default=False,
+        action="store_true",
+        help="Add Perlin Noise (suggested: 0.25)",
+    )   
+    parser.add_argument(
         "--perlin_noise_scale",
         type=float,
         default=1.0,
@@ -514,6 +520,7 @@ def main(args):
 
     if args.seed is not None:
         set_seed(args.seed)
+        torch.manual_seed(args.seed + 2)
 
     if args.concepts_list is None:
         args.concepts_list = [
@@ -878,8 +885,9 @@ def main(args):
                     octaves = args.perlin_noise_octaves
                     scale = noise.shape[2] * args.perlin_noise_scale
                     channels = []
+                    if not args.perlin_noise_per_channel : seedr = random.Random(self.seed + 3).randint(0, 65535)
                     for channel in range(4):
-                        seedr = random.randint(0, 65535)
+                        if args.perlin_noise_per_channel : seedr = random.Random(self.seed + 3).randint(0, 65535)
                         noise_array = torch.zeros((noise.shape[2], noise.shape[3]))
                         for x in range(noise.shape[2]):
                             for y in range(noise.shape[3]):
