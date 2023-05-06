@@ -174,7 +174,7 @@ def parse_args(input_args=None):
     parser.add_argument(
         "--save_infer_steps",
         type=int,
-        default=20,
+        default=30,
         help="The number of inference steps for save sample.",
     )
     parser.add_argument(
@@ -885,9 +885,9 @@ def main(args):
                     octaves = args.perlin_noise_octaves
                     scale = noise.shape[2] * args.perlin_noise_scale
                     channels = []
-                    if not args.perlin_noise_per_channel : seedr = random.Random(self.seed + 3).randint(0, 65535)
+                    if not args.perlin_noise_per_channel : seedr = random.Random(args.seed + 3).randint(0, 65535)
                     for channel in range(4):
-                        if args.perlin_noise_per_channel : seedr = random.Random(self.seed + 3).randint(0, 65535)
+                        if args.perlin_noise_per_channel : seedr = random.Random(args.seed + 3).randint(0, 65535)
                         noise_array = torch.zeros((noise.shape[2], noise.shape[3]))
                         for x in range(noise.shape[2]):
                             for y in range(noise.shape[3]):
